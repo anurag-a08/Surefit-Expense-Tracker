@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Member | Surefit FitTrack</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <aside class="sidebar">
+        <h2 class="brand">Surefit <span>FitTrack</span></h2>
+        <p class="side-label">MAIN MENU</p>
+        <a class="nav-link" href="/">▦ Dashboard</a>
+        <a class="nav-link" href="/#renewals">◷ Renewals</a>
+        <a class="nav-link" href="/#dues">₹ Pending Dues</a>
+        <a class="nav-link active" href="/#members">♙ Members</a>
+        <div class="sidebar-footer">Surefit FitTrack</div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">GYM-{{ "%04d"|format(member.id) }}</p>
+                <h1>Edit Member</h1>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <h2>{{ member.full_name }}</h2>
+                    <p>Update contact details, plan, expiry date or the balance owed.</p>
+                </div>
+            </div>
+
+            <form action="/members/{{ member.id }}/edit" method="POST" class="member-form">
+                <label>
+                    Full Name *
+                    <input name="full_name" required maxlength="120" value="{{ member.full_name }}">
+                </label>
+                <label>
+                    Phone Number *
+                    <input name="phone" type="tel" required maxlength="30" value="{{ member.phone }}">
+                </label>
+                <label>
+                    Email
+                    <input name="email" type="email" maxlength="254" value="{{ member.email or '' }}">
+                </label>
+                <label>
+                    Address
+                    <input name="address" maxlength="300" value="{{ member.address or '' }}">
+                </label>
+                <label>
+                    Membership Plan
+                    <select name="plan_name">
+                        {% for plan in ['Monthly', 'Quarterly', 'Half-yearly', 'Annual'] %}
+                        <option {{ 'selected' if plan == member.plan_name }}>{{ plan }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Expiry Date *
+                    <input name="membership_end" type="date" required value="{{ member.membership_end }}">
+                </label>
+                <label>
+                    Balance Due (₹)
+                    <input name="amount_due" type="number" min="0" step="0.01"
+                           inputmode="decimal" value="{{ member.amount_due or 0 }}">
+                </label>
+                <div class="form-actions">
+                    <a class="btn" href="/">Cancel</a>
+                    <button class="primary-button" type="submit">Save changes</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

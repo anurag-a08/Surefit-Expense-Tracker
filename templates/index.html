@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surefit FitTrack | Gym Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% macro wa(phone, text) -%}
+{%- set d = phone|replace(' ','')|replace('-','')|replace('+','') -%}
+https://wa.me/{{ '91' ~ d if d|length == 10 else d }}?text={{ text|urlencode }}
+{%- endmacro %}
+    <aside class="sidebar">
+        <h2 class="brand">Surefit <span>FitTrack</span></h2>
+        <p class="side-label">MAIN MENU</p>
+        <a class="nav-link active" href="/">▦ Dashboard</a>
+        <a class="nav-link" href="#renewals">◷ Renewals</a>
+        <a class="nav-link" href="#dues">₹ Pending Dues</a>
+        <a class="nav-link" href="#members">♙ Members</a>
+        <a class="nav-link" href="#register">＋ Add Member</a>
+        <div class="sidebar-footer">Surefit FitTrack</div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Surefit FitTrack gym management</p>
+                <h1>Dashboard</h1>
+            </div>
+            <div class="topbar-right">
+                <span class="today">{{ today }}</span>
+                <a class="primary-button" href="#register">+ Add Member</a>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="notice">
+              {% for message in messages %}
+                <p>{{ message }}</p>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% if expiring %}
+        <div class="alert" role="alert">
+            <span><strong>{{ expiring|length }} renewal{{ '' if expiring|length == 1 else 's' }} due in the next 7 days:</strong>
+            {{ expiring|map(attribute='full_name')|join(', ') }}</span>
+            <a href="#renewals">Contact them</a>
+        </div>
+        {% endif %}
+
+        <section class="stats">
+            <article class="stat-card">
+                <p>Total Members</p>
+                <h2>{{ total_members }}</h2>
+                <span>All registered clients</span>
+            </article>
+            <article class="stat-card">
+                <p>Active Memberships</p>
+                <h2>{{ active_members }}</h2>
+                <span>Not yet expired</span>
+            </article>
+            <article class="stat-card due">
+                <p>Renewals Due</p>
+                <h2>{{ expiring|length }}</h2>
+                <span>Expiring within 7 days</span>
+            </article>
+            <article class="stat-card due">
+                <p>Pending Dues</p>
+                <h2>₹{{ "%.2f"|format(total_due) }}</h2>
+                <span>{{ dues|length }} member{{ '' if dues|length == 1 else 's' }} with a balance</span>
+            </article>
+            <article class="stat-card">
+                <p>Revenue This Month</p>
+                <h2>₹{{ "%.2f"|format(revenue) }}</h2>
+                <span>Payments received this month</span>
+            </article>
+        </section>
+
+        <section class="panel renew" id="renewals">
+            <div class="section-heading">
+                <div>
+                    <h2>Upcoming Renewals</h2>
+                    <p>Memberships expiring within the next 7 days. Call these members to renew.</p>
+                </div>
+            </div>
+
+            {% if expiring %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Member</th>
+                            <th>Phone</th>
+                            <th>Plan</th>
+                            <th>Expiry Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for member in expiring %}
+                        <tr>
+                            <td class="name" data-label="Member">{{ member.full_name }}</td>
+                            <td data-label="Phone">{{ member.phone }}</td>
+                            <td data-label="Plan">{{ member.plan_name }}</td>
+                            <td data-label="Expiry"><span class="status soon">{{ member.membership_end }}</span></td>
+                            <td class="actions">
+                                <div class="row-actions">
+                                    <a class="btn" href="tel:{{ member.phone }}">Call</a>
+                                    <a class="btn btn-wa" target="_blank" rel="noopener"
+                                       href="{{ wa(member.phone, 'Hi ' ~ member.full_name ~ ', your Surefit FitTrack membership expires on ' ~ member.membership_end ~ '. Please renew to keep training without a break. Thank you!') }}">WhatsApp</a>
+                                    <form action="/members/{{ member.id }}/renew" method="POST">
+                                        <button class="btn btn-renew" type="submit">Renew</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="empty-state">No upcoming renewals in the next 7 days.</p>
+            {% endif %}
+        </section>
+
+        <section class="panel dues" id="dues">
+            <div class="section-heading">
+                <div>
+                    <h2>Pending Dues</h2>
+                    <p>Members who still owe part of their fee. Record a payment when they pay.</p>
+                </div>
+            </div>
+
+            {% if dues %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Member</th>
+                            <th>Phone</th>
+                            <th>Balance</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for member in dues %}
+                        <tr>
+                            <td class="name" data-label="Member">{{ member.full_name }}</td>
+                            <td data-label="Phone">{{ member.phone }}</td>
+                            <td data-label="Balance"><span class="status expired">₹{{ "%.2f"|format(member.amount_due) }}</span></td>
+                            <td class="actions">
+                                <div class="row-actions">
+                                    <a class="btn btn-wa" target="_blank" rel="noopener"
+                                       href="{{ wa(member.phone, 'Hi ' ~ member.full_name ~ ', a balance of ₹' ~ ('%.2f'|format(member.amount_due)) ~ ' is pending on your Surefit FitTrack membership. Please clear it at your earliest convenience. Thank you!') }}">Remind</a>
+                                    <form class="inline-form" action="/members/{{ member.id }}/collect-due" method="POST">
+                                        <input name="amount" type="number" min="1" max="{{ member.amount_due }}"
+                                               step="0.01" required inputmode="decimal"
+                                               placeholder="Amount" aria-label="Amount received">
+                                        <button class="btn btn-renew" type="submit">Collect</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="empty-state">No pending dues. Everyone has paid in full.</p>
+            {% endif %}
+        </section>
+
+        <section class="panel" id="register">
+            <div class="section-heading">
+                <div>
+                    <h2>Register New Member</h2>
+                    <p>Add a client and record their initial payment.</p>
+                </div>
+            </div>
+
+            <form action="/members/add" method="POST" class="member-form">
+                <label>
+                    Full Name *
+                    <input name="full_name" required maxlength="120"
+                           placeholder="Enter member name" autocomplete="name">
+                </label>
+                <label>
+                    Phone Number *
+                    <input name="phone" type="tel" required maxlength="30"
+                           placeholder="Enter phone number" autocomplete="tel">
+                </label>
+                <label>
+                    Email
+                    <input name="email" type="email" maxlength="254"
+                           placeholder="Email address" autocomplete="email">
+                </label>
+                <label>
+                    Address
+                    <input name="address" maxlength="300"
+                           placeholder="Member address">
+                </label>
+                <label>
+                    Membership Plan
+                    <select name="plan_name">
+                        <option>Monthly</option>
+                        <option>Quarterly</option>
+                        <option>Half-yearly</option>
+                        <option>Annual</option>
+                    </select>
+                </label>
+                <label>
+                    Start Date *
+                    <input name="membership_start" type="date"
+                           value="{{ today }}" required>
+                </label>
+                <label>
+                    Total Fee (₹)
+                    <input name="plan_fee" type="number" min="0"
+                           step="0.01" value="1500" required inputmode="decimal">
+                </label>
+                <label>
+                    Paid Now (₹)
+                    <input name="amount" type="number" min="0"
+                           step="0.01" value="1500" required inputmode="decimal">
+                </label>
+                <label>
+                    Payment Method
+                    <select name="payment_method">
+                        <option>UPI</option>
+                        <option>Cash</option>
+                        <option>Card</option>
+                        <option>Bank Transfer</option>
+                    </select>
+                </label>
+                <div class="form-actions">
+                    <button class="primary-button" type="submit">
+                        + Register Member
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel" id="members">
+            <div class="section-heading">
+                <div>
+                    <h2>Recent Members</h2>
+                    <p>Your latest registered gym clients.</p>
+                </div>
+                <input id="memberSearch" class="search" type="search"
+                       placeholder="Search members..." aria-label="Search members">
+            </div>
+
+            <div class="table-wrap">
+                <table id="memberTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Member</th>
+                            <th>Phone</th>
+                            <th>Plan</th>
+                            <th>Fee / Month</th>
+                            <th>Expiry</th>
+                            <th>Status</th>
+                            <th>Due</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for member in members %}
+                        <tr>
+                            <td class="id" data-label="ID">GYM-{{ "%04d"|format(member.id) }}</td>
+                            <td class="name" data-label="Member">{{ member.full_name }}</td>
+                            <td data-label="Phone">{{ member.phone }}</td>
+                            <td data-label="Plan">{{ member.plan_name }}</td>
+                            <td data-label="Fee / Month">₹{{ "%.2f"|format(member.monthly_fee) }}</td>
+                            <td data-label="Expiry">{{ member.membership_end }}</td>
+                            <td data-label="Status">
+                                {% if member.membership_end >= today %}
+                                    <span class="status active">Active</span>
+                                {% else %}
+                                    <span class="status expired">Expired</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Due">
+                                {% if member.amount_due and member.amount_due > 0 %}
+                                    <span class="status soon">₹{{ "%.2f"|format(member.amount_due) }}</span>
+                                {% else %}-{% endif %}
+                            </td>
+                            <td class="actions">
+                                <div class="row-actions">
+                                    <a class="btn" href="/members/{{ member.id }}/edit">Edit</a>
+                                    <form action="/members/{{ member.id }}/renew" method="POST">
+                                        <button class="btn btn-renew" type="submit">Renew</button>
+                                    </form>
+                                    <form action="/members/{{ member.id }}/delete" method="POST"
+                                          data-confirm="Remove this member? This cannot be undone.">
+                                        <button class="btn btn-remove" type="submit">Remove</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="empty-state">
+                                No members yet. Register your first client above.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="table-note">Showing the 10 most recently registered members.</p>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
